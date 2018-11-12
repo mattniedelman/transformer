@@ -18,8 +18,7 @@ def cloner(module, nclones):
 
 class LayerNorm(nn.Module):
     """
-    Other component of the layers
-    TODO: maybe should be combined with the sublayer connection class?
+    Layernorm, for use in sublayer connections
     """
 
     def __init__(self, nfeatures, eps=1e-6):
@@ -38,8 +37,9 @@ class LayerNorm(nn.Module):
 
 class SublayerConnection(nn.Module):
     """
-    One of the components of a layer
-    A res connection + layer norm
+    Use layernorm class to get some residual connections going with an
+    arbitrary sublayer.  Looks like it's always self-attention + feed forward
+    in transformer
     """
 
     def __init__(self, nfeatures, dropout):
@@ -55,16 +55,18 @@ class SublayerConnection(nn.Module):
 
 class EncoderLayer(nn.Module):
     """
+    Compose the self-attention and feed forward layers using the sublayer
+    connection class
     """
 
     def __init__(self, nfeatures, self_attn, feed_forward, dropout):
         super().__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.sublayer = clones(SublayerConnection(nfeatures, dropout), 2)
+        self.sublayers = clones(SublayerConnection(nfeatures, dropout), 2)
 
     def forward(self, x, mask):
-        attn, ff = self.sublayer
+        attn, ff = self.sublayers
         # TODO: what's going on with the repeated x here
         attended = attn(x, lambda x: self.self_attn(x, x, x, mask))
         ffed = ff(attn, self.feed_forward)
