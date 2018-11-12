@@ -39,16 +39,16 @@ class LayerNorm(nn.Module):
     TODO: maybe should be combined with the sublayer connection class?
     """
 
-    def __init__(self, features, eps=1e-6):
+    def __init__(self, nfeatures, eps=1e-6):
         super().__init__()
-        self.w = nn.Parameter(torch.ones(features))
-        self.b = nn.Parameter(torch.zeros(features))
+        self.w = nn.Parameter(torch.ones(nfeatures))
+        self.b = nn.Parameter(torch.zeros(nfeatures))
         self.eps = eps
 
     def forward(self, x):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
-        norm = (x-mean) / (std + self.eps)
+        norm = (x - mean) / (std + self.eps)
         normed = self.w * norm + self.b
         return normed
 
