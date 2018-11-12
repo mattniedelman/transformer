@@ -8,6 +8,14 @@ import torch.nn.functional as F
 from tourch.autograd import Variable
 
 
+def cloner(module, nclones):
+    """
+    Make a bunch of clones of a layer
+    """
+    clonelist = [copy.deepcopy(module) for _ in range(nclones)]
+    return nn.ModuleList(clonelist)
+
+
 class SublayerConnection(nn.Module):
     """
     One of the components of a layer
