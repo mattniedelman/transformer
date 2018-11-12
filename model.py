@@ -74,6 +74,23 @@ class EncoderLayer(nn.Module):
         return ffed
 
 
+class Encoder(nn.Module):
+    """
+    Stack up a bunch of encoder layers
+    """
+
+    def __init__(self, layer, nlayers):
+        super().__init__()
+        self.layers = cloner(layer, nlayers)
+        self.norm = LayerNorm(layer.nfeatures)
+
+    def forward(self, x, mask):
+        for layer in self.layers:
+            x = layer(x, mask)
+        x = self.norm(x)
+        return x
+
+
 class DecoderLayer(nn.Module):
     pass
 
