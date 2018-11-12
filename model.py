@@ -16,23 +16,6 @@ def cloner(module, nclones):
     return nn.ModuleList(clonelist)
 
 
-class SublayerConnection(nn.Module):
-    """
-    One of the components of a layer
-    A res connection + layer norm
-    """
-
-    def __init__(self, nfeatures, dropout):
-        super().__init__()
-        self.norm = LayerNorm(nfeatures)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, sublayer):
-        normed = self.norm(x)
-        out = x + self.dropout(sublayer(normed))
-        return out
-
-
 class LayerNorm(nn.Module):
     """
     Other component of the layers
@@ -51,6 +34,23 @@ class LayerNorm(nn.Module):
         norm = (x - mean) / (std + self.eps)
         normed = self.w * norm + self.b
         return normed
+
+
+class SublayerConnection(nn.Module):
+    """
+    One of the components of a layer
+    A res connection + layer norm
+    """
+
+    def __init__(self, nfeatures, dropout):
+        super().__init__()
+        self.norm = LayerNorm(nfeatures)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, sublayer):
+        normed = self.norm(x)
+        out = x + self.dropout(sublayer(normed))
+        return out
 
 
 class EncoderLayer(nn.Module):
