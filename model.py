@@ -92,15 +92,43 @@ class Encoder(nn.Module):
 
 
 class DecoderLayer(nn.Module):
-    pass
+    """
+    This is almost exactly the same as the encoder layers
+    Will come back later and merge them
+    """
 
+    def __init__(self, nfeatures, self_attn, feed_forward, dropout, src_attn):
+        super().__init__()
+        self.nfeatures = nfeatures
+        self.self_attn = self_attn
+        self.feed_forward = feed_forward
+        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
 
-class Encoder(nn.Module):
-    pass
+    def forward(self, x, mem, src_mask, tgt_mask):
+        attn_self, attn_src, ff = self.sublayers
+
+        x = attn_self(x, lambda x: self.self_attn(x, x, x, tgt_mask))
+        x = attn_src(x, lambda x: self.src_attn(x, mem, mem, src_mask))
+        x = ff(x, self.feed_forward)
+        return x
 
 
 class Decoder(nn.Module):
-    pass
+    """
+    Also pretty much the same as the encoder
+    """
+
+    def __init__(self, layer, nlayers):
+        super().__init__()
+        self.layers = cloner(layer, nlayers)
+        self.norm = LayerNorm(layer.nfeatures): w
+
+    def forward(self, x, mem, src_mask, tgt_mask):
+        for layer in self.layers:
+            x = layer(x, mem, src_mask, tgt_mask)
+
+        x = self.norm(x)
+        return(x)
 
 
 class EncoderDecoder(nn.Module):
