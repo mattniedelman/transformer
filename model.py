@@ -53,18 +53,16 @@ class SublayerConnection(nn.Module):
         return out
 
 
-class EncoderLayer(nn.Module):
+class XcoderLayer(nn.Module):
     """
-    Compose the self-attention and feed forward layers using the sublayer
-    connection class
+    Either an encoder or decoder layer
     """
 
-    def __init__(self, nfeatures, self_attn, feed_forward, dropout):
+    def __init__(self, nfeatures, attns, feed_forward, dropout):
         super().__init__()
         self.nfeatures = nfeatures
-        self.self_attn = self_attn
+        self.attns = attns
         self.feed_forward = feed_forward
-        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
 
     def forward(self, x, mask):
         attn, ff = self.sublayers
@@ -91,44 +89,21 @@ class Encoder(nn.Module):
         return x
 
 
-class DecoderLayer(nn.Module):
+class Xcoder(nn.Module):
     """
-    This is almost exactly the same as the encoder layers
-    Will come back later and merge them
-    """
-
-    def __init__(self, nfeatures, self_attn, feed_forward, dropout, src_attn):
-        super().__init__()
-        self.nfeatures = nfeatures
-        self.self_attn = self_attn
-        self.feed_forward = feed_forward
-        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
-
-    def forward(self, x, mem, src_mask, tgt_mask):
-        attn_self, attn_src, ff = self.sublayers
-
-        x = attn_self(x, lambda x: self.self_attn(x, x, x, tgt_mask))
-        x = attn_src(x, lambda x: self.src_attn(x, mem, mem, src_mask))
-        x = ff(x, self.feed_forward)
-        return x
-
-
-class Decoder(nn.Module):
-    """
-    Also pretty much the same as the encoder
+    Generic class, either encoder or decoder
+    The only difference is the presence of additional memory inputs
     """
 
     def __init__(self, layer, nlayers):
         super().__init__()
         self.layers = cloner(layer, nlayers)
-        self.norm = LayerNorm(layer.nfeatures): w
+        self.norm = LayerNorm(layer.nfeatures)
 
-    def forward(self, x, mem, src_mask, tgt_mask):
+    def forward(self, x, masks, mem=None):
         for layer in self.layers:
-            x = layer(x, mem, src_mask, tgt_mask)
-
+            x = layer(x, masks, mem)
         x = self.norm(x)
-        return(x)
 
 
 class EncoderDecoder(nn.Module):
