@@ -54,7 +54,21 @@ class LayerNorm(nn.Module):
 
 
 class EncoderLayer(nn.Module):
-    pass
+    """
+    """
+
+    def __init__(self, nfeatures, self_attn, feed_forward, dropout):
+        super().__init__()
+        self.self_attn = self_attn
+        self.feed_forward = feed_forward
+        self.sublayer = clones(SublayerConnection(nfeatures, dropout), 2)
+
+    def forward(self, x, mask):
+        attn, ff = self.sublayer
+        # TODO: what's going on with the repeated x here
+        attended = attn(x, lambda x: self.self_attn(x, x, x, mask))
+        ffed = ff(attn, self.feed_forward)
+        return ffed
 
 
 class DecoderLayer(nn.Module):
