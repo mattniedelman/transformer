@@ -53,30 +53,50 @@ class SublayerConnection(nn.Module):
         return out
 
 
-class EncoderLayer(nn.Module):
+class XcoderLayer(nn.Module):
     """
-    Compose the self-attention and feed forward layers using the sublayer
-    connection class
+    Either an encoder or decoder layer.  Or something else?
     """
 
-    def __init__(self, nfeatures, self_attn, feed_forward, dropout):
+    def __init__(self, nfeatures, attns, feed_forward, dropout):
         super().__init__()
         self.nfeatures = nfeatures
-        self.self_attn = self_attn
+        self.attns = attns
         self.feed_forward = feed_forward
-        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
 
-    def forward(self, x, mask):
-        attn, ff = self.sublayers
-        # TODO: what's going on with the repeated x here
-        attended = attn(x, lambda x: self.self_attn(x, x, x, mask))
-        ffed = ff(attn, self.feed_forward)
-        return ffed
+        # Need an amount of sublayers equal to the amount of attention steps + 1
+        # For encoder, there is 1 attention step, for decoders, 2.  It's not
+        # obvious to me that this couldn't be repeated as desired to fit more
+        # complex inputs
+        self.sublayers = cloner(SublayerConnection(
+            nfeatures, dropout), len(attns) + 1)
+
+    def forward(self, x, kvs=None, masks=None):
+
+        # First attend to self, then others
+        # Definitely in premature generalizing territory here, but this
+        # actually looks like it could lead somewhere pretty interesting
+        if not kvs:
+            kvs = [(x, x)] * (len(self.attns) - 1)
+
+        # For each attention step, grab a sublayer, perform the attention step
+        # with the corresponding key, value, and mask.
+        # TODO: it will probably be useful to be more structured about these args
+        for layer, attn, kv, mask in zip(self.sublayers, self.attns, kvs, masks):
+            k, v = kv
+            x = layer(x, lambda x: attn(query=x,
+                                        key=k,
+                                        value=v,
+                                        mask=mask))
+
+        x = self.sublayers(x, self.feed_forward)
+        return x
 
 
-class Encoder(nn.Module):
+class Xcoder(nn.Module):
     """
-    Stack up a bunch of encoder layers
+    Generic class, either encoder or decoder
+    The only difference is the presence of additional memory inputs
     """
 
     def __init__(self, layer, nlayers):
@@ -84,51 +104,11 @@ class Encoder(nn.Module):
         self.layers = cloner(layer, nlayers)
         self.norm = LayerNorm(layer.nfeatures)
 
-    def forward(self, x, mask):
+    def forward(self, x, masks, kvs=None):
         for layer in self.layers:
-            x = layer(x, mask)
+            x = layer(x, masks, kvs)
         x = self.norm(x)
         return x
-
-
-class DecoderLayer(nn.Module):
-    """
-    This is almost exactly the same as the encoder layers
-    Will come back later and merge them
-    """
-
-    def __init__(self, nfeatures, self_attn, feed_forward, dropout, src_attn):
-        super().__init__()
-        self.nfeatures = nfeatures
-        self.self_attn = self_attn
-        self.feed_forward = feed_forward
-        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
-
-    def forward(self, x, mem, src_mask, tgt_mask):
-        attn_self, attn_src, ff = self.sublayers
-
-        x = attn_self(x, lambda x: self.self_attn(x, x, x, tgt_mask))
-        x = attn_src(x, lambda x: self.src_attn(x, mem, mem, src_mask))
-        x = ff(x, self.feed_forward)
-        return x
-
-
-class Decoder(nn.Module):
-    """
-    Also pretty much the same as the encoder
-    """
-
-    def __init__(self, layer, nlayers):
-        super().__init__()
-        self.layers = cloner(layer, nlayers)
-        self.norm = LayerNorm(layer.nfeatures): w
-
-    def forward(self, x, mem, src_mask, tgt_mask):
-        for layer in self.layers:
-            x = layer(x, mem, src_mask, tgt_mask)
-
-        x = self.norm(x)
-        return(x)
 
 
 class EncoderDecoder(nn.Module):
