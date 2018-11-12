@@ -55,7 +55,7 @@ class SublayerConnection(nn.Module):
 
 class XcoderLayer(nn.Module):
     """
-    Either an encoder or decoder layer
+    Either an encoder or decoder layer.  Or something else?
     """
 
     def __init__(self, nfeatures, attns, feed_forward, dropout):
