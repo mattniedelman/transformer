@@ -64,28 +64,37 @@ class XcoderLayer(nn.Module):
         self.attns = attns
         self.feed_forward = feed_forward
 
-    def forward(self, x, mask):
-        attn, ff = self.sublayers
-        # TODO: what's going on with the repeated x here
-        attended = attn(x, lambda x: self.self_attn(x, x, x, mask))
-        ffed = ff(attn, self.feed_forward)
-        return ffed
+        # Need an amount of sublayers equal to the amount of attention steps + 1
+        # For encoder, there is 1 attention step, for decoders, 2.  It's not
+        # obvious to me that this couldn't be repeated as desired to fit more
+        # complex inputs
+        self.sublayers = cloner(SublayerConnection(
+            nfeatures, dropout), len(attns) + 1)
 
+    def forward(self, x, kvs=[(x, x)], masks=None, mem=None):
 
-class Encoder(nn.Module):
-    """
-    Stack up a bunch of encoder layers
-    """
+        # Create key value sequence
+        kvs = [(x, x)] * len(self.attns)
 
-    def __init__(self, layer, nlayers):
-        super().__init__()
-        self.layers = cloner(layer, nlayers)
-        self.norm = LayerNorm(layer.nfeatures)
+        # First attend to self, then others
+        # Definitely in premature generalizing territory here, but this
+        # actually looks like it could lead somewhere pretty interesting
+        # In any case, mem is still static here, but a sequence of different
+        # and arbitrary kv to query against would be SUPER interesting
+        if mem:
+            kvs[1:] = [(mem, mem)] * (len(self.attns) - 1)
 
-    def forward(self, x, mask):
-        for layer in self.layers:
-            x = layer(x, mask)
-        x = self.norm(x)
+        # For each attention step, grab a sublayer, perform the attention step
+        # with the corresponding key, value, and mask.
+        # TODO: it will probably be useful to be more structured about these args
+        for layer, attn, kv, mask in zip(self.sublayers, self.attns, kvs, masks):
+            k, v = kv
+            x = layer(x, lambda x: attn(query=x,
+                                        key=k,
+                                        value=v,
+                                        mask=mask))
+
+        x = self.sublayers(x, self.feed_forward)
         return x
 
 
