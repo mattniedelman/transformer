@@ -108,6 +108,7 @@ class Xcoder(nn.Module):
         for layer in self.layers:
             x = layer(x, masks, kvs)
         x = self.norm(x)
+        return x
 
 
 class EncoderDecoder(nn.Module):
