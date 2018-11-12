@@ -2,6 +2,7 @@
 Stealing from annotated transformer page
 """
 import copy
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -108,6 +109,67 @@ class Xcoder(nn.Module):
         for layer in self.layers:
             x = layer(x, masks, kvs)
         x = self.norm(x)
+        return x
+
+
+class MultiHeadedAttention(nn.Module):
+    """
+    I guess this is where the magic happens
+    """
+
+    def __init__(self, h, d_k, dropout=0.1):
+        super().__init__()
+        self.h = h
+        self.d_k = d_k
+
+        # Easier to just define the model size off one of the sub arrays than
+        # go through an assertion song and dance
+        d_model = d_k * h
+        self.linears = cloner(nn.Linear(d_model, d_model), 4)
+
+        self.attn = None
+        self.dropout = nn.Dropout(dropout)
+
+    def do_attention(query, key, value, mask=None, dropout=None):
+        """
+        Nothing really fancy here.  Going for:
+        softmax( (Q * K^T)/sqrt(d_k)) * V
+        """
+        d_k = query.size(-1)
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+
+        if mask:
+            scores = scores.masked_fill(mask == 0, -1e9)
+
+        p_attn = F.softmax(scores, dim=-1)
+
+        if dropout:
+            p_attn = dropout(p_attn)
+
+        attn = torch.matmul(p_attn, value), p_attn
+        return attn
+
+    def forward(self, query, key, value, mask=None):
+        if mask is not None:
+            mask = mask.unsqueeze(1)
+
+        nbatches = query.size(0)
+
+        # Ugh, just going to trust the annotated page for the dimensions here
+        qkv = []
+        for f, x in zip(self.linears, (query, key, value)):
+            qkv.append(f(x).view(nbatches, -1, self.h,
+                                 self.d_k).transpose(1, 2))
+
+        query, key, value = qkv
+
+        x, self.attn = attention(
+            query, key, value, mask=mask, dropout=self.dropout)
+
+        # so many dimension shenanigans
+        x = x.transpose(1, 2).contiguous()
+        x = x.view(nbatches, -1, self.h * self.d_k)
+        x = self.linears[-1](x)
         return x
 
 
