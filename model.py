@@ -173,5 +173,34 @@ class MultiHeadedAttention(nn.Module):
         return x
 
 
+class FF(nn.Module):
+    """
+    Regular feed forward bit
+    """
+
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super().__init__()
+        self.W_1 = nn.Linear(d_model, d_ff)
+        self.W_2 = nn.Linear(d_ff, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = F.relu(self.W_1(x))
+        x = self.dropout(x)
+        x = self.W_2(x)
+        return(x)
+
+
+class Embedder(nn.Module):
+    def __init__(self, d_model, vocab):
+        super().__init__()
+        self.emb = nn.Embedding(vocab, d_model)
+        self.d_model_sqrt = math.sqrt(d_model)
+
+    def forward(self, x):
+        x = self.emb(x) * self.d_model_sqrt
+        return(x)
+
+
 class EncoderDecoder(nn.Module):
     pass
