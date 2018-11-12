@@ -71,18 +71,13 @@ class XcoderLayer(nn.Module):
         self.sublayers = cloner(SublayerConnection(
             nfeatures, dropout), len(attns) + 1)
 
-    def forward(self, x, kvs=[(x, x)], masks=None, mem=None):
-
-        # Create key value sequence
-        kvs = [(x, x)] * len(self.attns)
+    def forward(self, x, kvs=None, masks=None):
 
         # First attend to self, then others
         # Definitely in premature generalizing territory here, but this
         # actually looks like it could lead somewhere pretty interesting
-        # In any case, mem is still static here, but a sequence of different
-        # and arbitrary kv to query against would be SUPER interesting
-        if mem:
-            kvs[1:] = [(mem, mem)] * (len(self.attns) - 1)
+        if not kvs:
+            kvs = [(x, x)] * (len(self.attns) - 1)
 
         # For each attention step, grab a sublayer, perform the attention step
         # with the corresponding key, value, and mask.
@@ -109,9 +104,9 @@ class Xcoder(nn.Module):
         self.layers = cloner(layer, nlayers)
         self.norm = LayerNorm(layer.nfeatures)
 
-    def forward(self, x, masks, mem=None):
+    def forward(self, x, masks, kvs=None):
         for layer in self.layers:
-            x = layer(x, masks, mem)
+            x = layer(x, masks, kvs)
         x = self.norm(x)
 
 
