@@ -63,7 +63,7 @@ class EncoderLayer(nn.Module):
         super().__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.sublayers = clones(SublayerConnection(nfeatures, dropout), 2)
+        self.sublayers = cloner(SublayerConnection(nfeatures, dropout), 2)
 
     def forward(self, x, mask):
         attn, ff = self.sublayers
